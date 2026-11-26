@@ -19,8 +19,6 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: "1"
-      # 测试与 demo 只碰临时工作区，不碰 $HOME/.pta
-      PTA_HOME: ${{ runner.temp }}/pta-home
     steps:
       - uses: actions/checkout@v4
 
@@ -34,5 +32,9 @@ jobs:
           python -c "import sys; print(sys.executable)"
 
       - name: Run the full suite
-        # 项目只依赖标准库，没有 requirements.txt，装依赖这步可以省掉
+        # 项目只依赖标准库，没有 requirements.txt，装依赖这步可以省掉。
+        # 测试与 demo 只碰临时工作区：PTA_HOME 指到 runner 的临时目录，
+        # 绝不写 ~/.pta（runner 上下文只在 step 级 env 里可用，所以放在这里）。
+        env:
+          PTA_HOME: ${{ runner.temp }}/pta-home
         run: python run_tests.py
