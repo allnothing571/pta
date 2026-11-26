@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# ---- 运行时工作区（绝不可入库）----
+# 一个工作区里包含证据正文、加密主密钥、身份 cookie、账本。
+# 这些一旦进过 Git 历史，即使后来删除也仍然可被取回，所以整类屏蔽。
+scope.json
+index.sqlite
+vault.json
+discover.json
+recon.json
+overrides.json
+calibration.json
+targets.json
+cas/
+logs/
+cred/
+out/
+out_*/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# ---- 本地靶场与一次性产物 ----
+labs/
+*.log
+*.err
+*.corrupt
+demo_*.txt
+_c.txt
+_cb.txt
+_smoke.py
+_dbg*.py
+_dbg_dump.txt
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini

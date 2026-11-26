@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.py text
+*.md text
+*.js text
+*.css text
+*.html text
+*.json text
+*.sqlite binary
+*.png binary
+*.jar binary

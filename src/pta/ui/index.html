@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PTA · 渗透 Agent 操作台</title>
+<link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">跳到主内容</a>
+<aside class="sidebar" id="sidebar" aria-label="工作台导航">
+  <div class="sidebar-head">
+    <a class="workspace-brand" href="#/" aria-label="返回全部项目"><span class="brand-mark" aria-hidden="true">P</span><span>PTA<span class="brand-caption">安全实验工作台</span></span></a>
+    <button class="icon-btn" id="sidebar-close" aria-label="关闭导航">×</button>
+  </div>
+  <div class="sidebar-scroll">
+    <nav aria-label="项目视图">
+      <h2 class="nav-heading">项目</h2>
+      <div class="sidebar-stages" id="pf-stages"></div>
+    </nav>
+    <nav class="workspace-nav" aria-label="工作区筛选">
+      <h2 class="nav-heading">工作区</h2>
+      <div id="nav-workspaces"></div>
+      <select id="pf-ws" hidden aria-label="工作区"><option value="">全部工作区</option></select>
+    </nav>
+    <nav class="project-nav" id="project-nav" aria-label="当前项目" hidden>
+      <h2 class="nav-heading">当前项目</h2>
+      <div class="nav-project-name" id="nav-project-name"></div>
+      <button class="nav-item active" data-panel="p-name"><span class="nav-icon" aria-hidden="true">◈</span>项目概览</button>
+      <button class="nav-item" data-panel="panel-findings"><span class="nav-icon" aria-hidden="true">≡</span>假设队列</button>
+      <button class="nav-item" data-panel="panel-assets"><span class="nav-icon" aria-hidden="true">◇</span>资产</button>
+      <button class="nav-item" data-panel="panel-approvals"><span class="nav-icon" aria-hidden="true">⊙</span>待审批<span class="nav-count" id="nav-approvals">0</span></button>
+      <button class="nav-item" data-panel="panel-evidence"><span class="nav-icon" aria-hidden="true">⇄</span>证据对比</button>
+    </nav>
+  </div>
+  <div class="sidebar-foot">
+    <a class="nav-item nav-create" href="#/new"><span class="nav-icon" aria-hidden="true">＋</span>添加项目</a>
+    <div class="conn" role="status"><i class="dot" id="dot"></i><span id="conn-text">连接中</span></div>
+    <span class="local-caption">本机单人工作区</span>
+  </div>
+</aside>
+<button class="sidebar-shade" id="sidebar-shade" aria-label="关闭导航" hidden></button>
+
+<header class="topbar">
+  <button class="icon-btn" id="sidebar-toggle" aria-label="展开导航" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <nav class="crumbs" id="crumbs"><a href="#/">项目</a></nav>
+  <div class="eng" id="eng">—</div>
+  <div class="chips" id="scope-chips"></div>
+  <div class="meters">
+    <div class="meter">
+      <label>请求</label>
+      <div class="bar"><i id="bar-req"></i></div>
+      <output id="out-req">—</output>
+    </div>
+    <div class="meter">
+      <label>熔断</label>
+      <output id="out-breaker">—</output>
+    </div>
+  </div>
+  <span class="topbar-caption">本地操作台</span>
+</header>
+
+<main id="main-content" tabindex="-1">
+
+  <!-- ============ 视图 1：项目列表 ============ -->
+  <section class="view" id="view-projects">
+    <div class="list-head">
+      <h1 id="project-list-title">全部项目</h1>
+      <span class="count" id="projects-count">0</span>
+      <span class="spacer"></span>
+      <button class="btn primary" id="btn-new">添加项目</button>
+    </div>
+    <p class="list-description" id="projects-subtitle">查看项目阶段、结论和最近活动。</p>
+
+    <div class="filters">
+      <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="pf-q" aria-label="搜索项目" placeholder="搜索名称、路径或域名"></label>
+      <span class="filter-context" id="filter-context">全部工作区</span>
+    </div>
+    <div class="project-columns" aria-hidden="true"><span>项目 / 工作区</span><span>阶段</span><span>证据与结论</span><span>最近活动</span></div>
+    <div id="projects" class="projects" aria-busy="false"></div>
+    <div class="mute hintline" id="pf-hint"></div>
+  </section>
+
+  <!-- ============ 视图 2：新建项目 ============ -->
+  <section class="view" id="view-new" hidden>
+    <form id="new-form" class="card form" autocomplete="off">
+      <h1>添加项目</h1>
+      <p class="mute">只填这三项，其余的按 URL 推。</p>
+      <div class="field">
+        <label>名字</label>
+        <input id="new-name" required placeholder="webgoat 本地靶场">
+      </div>
+      <div class="field">
+        <label>目标 URL</label>
+        <input id="new-url" required placeholder="http://127.0.0.1:8080/">
+      </div>
+      <div class="field">
+        <label>工作区目录</label>
+        <input id="new-ws" required placeholder="/path/to/ws">
+      </div>
+      <div class="field">
+        <label>备注（可空）</label>
+        <input id="new-note" placeholder="这轮想验什么">
+      </div>
+      <p class="mute small" id="new-hint">
+        范围按 URL 推：域名写进 scope，80/443 之外的端口自动加进允许端口；
+        127.0.0.1 / *.local / *.test 这类私有地址自动放行内网。目录已存在也行，
+        里面有 scope.json 会被当成「已经是项目」。
+      </p>
+      <div class="foot">
+        <a class="btn ghost" href="#/">取消</a>
+        <button class="btn primary" id="new-submit" type="submit">创建</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ 视图 3：项目详情 ============ -->
+  <section class="view" id="view-project" hidden>
+    <div class="proj-head">
+      <h1 id="p-name" tabindex="-1">—</h1>
+      <span class="pill" id="p-stage">—</span>
+      <span class="mono mute truncate" id="p-root"></span>
+      <span class="spacer"></span>
+      <div class="acts" id="p-actions"></div>
+      <button class="btn sm ghost" id="p-refresh" title="重新算一遍阶段">刷新</button>
+    </div>
+    <div class="why" id="p-why"></div>
+    <ol class="steps" id="p-steps"></ol>
+    <div class="jobline" id="p-job" hidden></div>
+
+    <div class="grid">
+
+      <!-- 假设队列 -->
+      <section class="panel" id="panel-findings" tabindex="-1">
+        <div class="panel-head">
+          <h2>假设队列</h2>
+          <span class="count" id="findings-count">0</span>
+          <span class="spacer"></span>
+          <button class="btn sm" id="btn-critic" title="让 Critic 复核全部 finding">复核</button>
+          <button class="btn sm primary" id="btn-run">跑模板</button>
+        </div>
+        <div class="panel-body tall">
+          <div class="tally" id="tally"></div>
+          <div id="findings"></div>
+        </div>
+      </section>
+
+      <!-- 资产图 -->
+      <section class="panel" id="panel-assets" tabindex="-1">
+        <div class="panel-head">
+          <h2>资产图</h2>
+          <span class="count" id="assets-count">0</span>
+          <span class="spacer"></span>
+          <button class="btn sm" id="btn-plan" title="让 Planner 提候选（模型缺失时走规则）">提候选</button>
+        </div>
+        <div class="panel-body tall">
+          <div id="assets"></div>
+          <div id="plan-notes" class="mute" style="font-size:11.5px;margin-top:8px"></div>
+        </div>
+      </section>
+
+      <!-- 审批栏 -->
+      <section class="panel" id="panel-approvals" tabindex="-1">
+        <div class="panel-head">
+          <h2>审批栏</h2>
+          <span class="count" id="approvals-count">0</span>
+          <span class="spacer"></span>
+          <span class="mute" style="font-size:11px">L2 动作必须人工放行</span>
+        </div>
+        <div class="panel-body" id="approvals"></div>
+      </section>
+
+      <!-- 证据对比 -->
+      <section class="panel" id="panel-evidence" tabindex="-1">
+        <div class="panel-head">
+          <h2>证据对比</h2>
+          <span class="count" id="evidence-count">0</span>
+          <span class="spacer"></span>
+          <button class="btn sm ghost" id="btn-clear-diff">清空选择</button>
+        </div>
+        <div class="panel-body">
+          <div class="ev-tools">
+            <input type="search" id="ev-filter" placeholder="过滤：label / 路径 / 状态码">
+          </div>
+          <div class="slots" id="diff-slots"></div>
+          <div class="ev-list" id="ev-list"></div>
+          <div id="diff"></div>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- 证据抽屉 -->
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title">证据</h3>
+    <button class="btn sm ghost" id="drawer-close">关闭</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<!-- 跑模板 -->
+<dialog id="run-dialog">
+  <form id="run-form" method="dialog">
+    <h3>跑一个模板</h3>
+    <div class="field">
+      <label>模板</label>
+      <select id="run-template"></select>
+    </div>
+    <div class="field">
+      <label>目标 URL</label>
+      <input id="run-url" placeholder="https://app.example.com/api/item?id=7" required>
+    </div>
+    <div class="field">
+      <label>参数位置</label>
+      <input id="run-param" placeholder="query:id / body:* / header:X-Api-Key（可空）">
+    </div>
+    <div class="field">
+      <label>方法</label>
+      <select id="run-method">
+        <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>基线身份</label>
+      <input id="run-id-base" value="A">
+    </div>
+    <div class="field">
+      <label>注入身份</label>
+      <input id="run-id-probe" value="none">
+    </div>
+    <div class="field">
+      <label>请求体（JSON）</label>
+      <textarea id="run-body" placeholder='{"name":"widget","role":"user"}'></textarea>
+    </div>
+    <div class="field">
+      <label>拒绝模板 URL</label>
+      <input id="run-control" placeholder="同站一个已知需要登录的接口（authz 用，可空）">
+    </div>
+    <div class="foot">
+      <button class="btn ghost" value="cancel" formnovalidate>取消</button>
+      <button class="btn primary" id="run-submit" value="run">开始</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 导入登录态 -->
+<dialog id="identity-dialog">
+  <form id="identity-form" method="dialog">
+    <h3>导入登录态</h3>
+    <p class="mute small">存进工作区 vault（只有引用和哈希落盘），浏览器与探针都按这个名字取用。</p>
+    <div class="field">
+      <label>身份名</label>
+      <input id="id-name" required placeholder="A" value="A">
+    </div>
+    <div class="field">
+      <label>Cookie</label>
+      <textarea id="id-cookie" placeholder="JSESSIONID=xxxx; other=yyy&#10;或者直接粘一行 Set-Cookie / cookie 文件内容"></textarea>
+    </div>
+    <div class="field">
+      <label>其它请求头（每行 Name: value，可空）</label>
+      <textarea id="id-headers" placeholder="Authorization: Bearer xxxx"></textarea>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" value="cancel" formnovalidate>取消</button>
+      <button class="btn primary" value="save">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 侦察 -->
+<dialog id="recon-dialog">
+  <form id="recon-form" method="dialog">
+    <h3>侦察一次</h3>
+    <div class="field">
+      <label>种子 URL</label>
+      <input id="recon-seed" required placeholder="http://127.0.0.1:8080/">
+    </div>
+    <div class="field">
+      <label>身份</label>
+      <input id="recon-identity" placeholder="A（留空 = 第一个已导入的身份）">
+    </div>
+    <div class="field">
+      <label>最多页数 / 深度</label>
+      <div class="pair">
+        <input id="recon-pages" type="number" min="1" value="25">
+        <input id="recon-depth" type="number" min="0" value="2">
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" value="cancel" formnovalidate>取消</button>
+      <button class="btn primary" value="run">开始</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts"></div>
+<script src="/ui/app.js"></script>
+</body>
+</html>
