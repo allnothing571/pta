@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unittest:
+    name: py${{ matrix.python }} on windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.11"]
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+      # 测试与 demo 只碰临时工作区，不碰 $HOME/.pta
+      PTA_HOME: ${{ runner.temp }}/pta-home
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Show interpreter
+        run: |
+          python -V
+          python -c "import sys; print(sys.executable)"
+
+      - name: Run the full suite
+        # 项目只依赖标准库，没有 requirements.txt，装依赖这步可以省掉
+        run: python run_tests.py
